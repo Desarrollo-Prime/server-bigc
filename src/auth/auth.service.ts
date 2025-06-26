@@ -1,9 +1,5 @@
-import {
-  Injectable,
-  UnauthorizedException,
-  BadRequestException,
-  Logger,
-} from '@nestjs/common';
+// bigc-backend/src/auth/auth.service.ts
+import { Injectable, UnauthorizedException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ProfileUser } from '../entities/profile-user.entity';
@@ -30,36 +26,55 @@ export class AuthService {
 
   /**
    * Valida las credenciales del usuario y devuelve el usuario si son válidas.
+   * Se usa para el login inicial con usuario/contraseña.
    * @param userName Nombre de usuario.
    * @param password Contraseña.
-   * @returns ProfileUser sin contraseña si la validación es exitosa.
+   * @returns ProfileUser sin contraseña y con roles si la validación es exitosa.
    */
-  async validateUser(userName: string, pass: string): Promise<any> {
-    const user = await this.usersRepository.findOne({
-      where: { userName: userName, enable: true, blocked: false },
-      relations: ['userRoles', 'userRoles.role'],
-    });
+  async validateUserCredentials(userName: string, pass: string): Promise<any> {
+    const user = await this.usersRepository.createQueryBuilder('profileUser')
+      .leftJoinAndSelect('profileUser.userRoles', 'userRoles')
+      .leftJoinAndSelect('userRoles.role', 'role')
+      .where('profileUser.userName = :userName', { userName })
+      .andWhere('profileUser.enable = :enable', { enable: true })
+      .andWhere('profileUser.blocked = :blocked', { blocked: false })
+      .getOne();
 
     if (!user) {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
-    // Comparar la contraseña ingresada con la contraseña hasheada en la base de datos
-    // La contraseña en la DB del esquema es '914A8F1C07561D222A2E60F2E6F5DBD0ACF33C79FA16488C028359C7C2E9CEB8' para 'Admin123*'
-    // Esta es una contraseña hasheada con MD5, no con bcrypt.
-    // Para que el ejemplo funcione con el esquema proporcionado, haré una comparación directa.
-    // EN UN ENTORNO REAL, DEBERÍAS HASHEAR TODAS LAS CONTRASEÑAS CON BCRYPT AL REGISTRAR.
-    const isPasswordValid = user.password === pass; // Para el esquema dado, compara directamente
-    // const isPasswordValid = await bcrypt.compare(pass, user.password); // Para bcrypt real
+    const isPasswordValid = await bcrypt.compare(pass, user.password);
 
     if (!isPasswordValid) {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
-    // Obtener roles del usuario
-    const roles = user.userRoles.map(ur => ur.role.name);
+    const roles = user.userRoles?.map(ur => ur.role.name) || [];
+    const { password, ...result } = user;
+    return { ...result, roles };
+  }
 
-    // Retornar el usuario sin la contraseña y con los roles
+  /**
+   * Busca y devuelve un usuario por nombre de usuario, incluyendo sus roles.
+   * Utilizado por la estrategia JWT para cargar los datos del usuario después de la validación del token.
+   * @param userName Nombre de usuario.
+   * @returns ProfileUser sin contraseña y con roles, o null si no se encuentra/está inactivo/bloqueado.
+   */
+  async findUserForJwtValidation(userName: string): Promise<any | null> {
+    const user = await this.usersRepository.createQueryBuilder('profileUser')
+      .leftJoinAndSelect('profileUser.userRoles', 'userRoles')
+      .leftJoinAndSelect('userRoles.role', 'role')
+      .where('profileUser.userName = :userName', { userName })
+      .andWhere('profileUser.enable = :enable', { enable: true })
+      .andWhere('profileUser.blocked = :blocked', { blocked: false })
+      .getOne();
+
+    if (!user) {
+      return null;
+    }
+
+    const roles = user.userRoles?.map(ur => ur.role.name) || [];
     const { password, ...result } = user;
     return { ...result, roles };
   }
@@ -70,7 +85,7 @@ export class AuthService {
    * @returns Un objeto con el token de acceso y los datos del usuario.
    */
   async login(loginDto: LoginDto) {
-    const user = await this.validateUser(loginDto.userName, loginDto.password);
+    const user = await this.validateUserCredentials(loginDto.userName, loginDto.password); // Usar el método de credenciales
     if (!user) {
       throw new UnauthorizedException('Credenciales incorrectas o usuario inactivo/bloqueado.');
     }

@@ -1,53 +1,38 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+// bigc-backend/src/auth/strategies/jwt.strategy.ts
 import { PassportStrategy } from '@nestjs/passport';
-import { ExtractJwt, Strategy } from 'passport-jwt';
+import { Strategy, ExtractJwt } from 'passport-jwt';
+import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Repository } from 'typeorm';
-import { ProfileUser } from '../../entities/profile-user.entity';
-import { InjectRepository } from '@nestjs/typeorm';
-import { UserRole } from '../../entities/user-role.entity';
-import { Role } from '../../entities/role.entity';
+import { AuthService } from '../auth.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
+  private readonly logger = new Logger(JwtStrategy.name);
+
   constructor(
     private configService: ConfigService,
-    @InjectRepository(ProfileUser)
-    private usersRepository: Repository<ProfileUser>,
-    @InjectRepository(UserRole)
-    private userRolesRepository: Repository<UserRole>,
-    @InjectRepository(Role)
-    private rolesRepository: Repository<Role>,
+    private authService: AuthService,
   ) {
+    const secret = configService.get<string>('JWT_SECRET') || 'supersecretkey'; // Usar una constante para el secreto
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('JWT_SECRET') || 'supersecretkey',
+      secretOrKey: secret,
     });
+    this.logger.log(`[JwtStrategy] JWT_SECRET used for verifying tokens: ${secret ? '*****' : 'DEFAULT_SECRET_USED'} (length: ${secret.length})`);
   }
 
-  /**
-   * Valida el payload del JWT y adjunta el usuario al request.
-   * @param payload Payload decodificado del JWT.
-   * @returns El objeto de usuario para adjuntar al request (req.user).
-   */
   async validate(payload: any) {
-    const user = await this.usersRepository.findOne({
-      where: { id: payload.sub, enable: true, blocked: false },
-      relations: ['userRoles', 'userRoles.role'],
-    });
+    this.logger.debug(`[JwtStrategy] Validating JWT payload: ${JSON.stringify(payload)}`);
+
+    const user = await this.authService.findUserForJwtValidation(payload.userName); 
 
     if (!user) {
-      throw new UnauthorizedException('Usuario no encontrado o inactivo/bloqueado.');
+      this.logger.warn(`[JwtStrategy] User with userName ${payload.userName} not found or invalid during JWT validation (e.g., disabled/blocked).`);
+      throw new UnauthorizedException('Token inválido o usuario inactivo/bloqueado.');
     }
 
-    // Asegurarse de que los roles se adjunten al objeto de usuario validado
-    const roles = user.userRoles.map(ur => ur.role.name);
-    return {
-      userId: user.id,
-      userName: user.userName,
-      companyId: user.companyId,
-      roles: roles,
-    };
+    this.logger.debug(`[JwtStrategy] User successfully validated via JWT: ${user.userName}, Roles: ${user.roles}`);
+    return user; // Este objeto se adjuntará a `req.user`
   }
 }

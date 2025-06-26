@@ -1,34 +1,44 @@
-import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
+// bigc-backend/src/auth/guards/roles.guard.ts
+import { Injectable, CanActivate, ExecutionContext, Logger } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { ROLES_KEY } from '../decorators/roles.decorator'; // Importa la clave
-import { UserRoleEnum } from '../../utils/constants';
+import { Observable } from 'rxjs';
+import { UserRoleEnum } from '../../utils/constants'; // Asegúrate de importar UserRoleEnum
 
 @Injectable()
 export class RolesGuard implements CanActivate {
+  private readonly logger = new Logger(RolesGuard.name);
+
   constructor(private reflector: Reflector) {}
 
-  canActivate(context: ExecutionContext): boolean {
-    // Obtener los roles requeridos para la ruta
-    const requiredRoles = this.reflector.getAllAndOverride<UserRoleEnum[]>(ROLES_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+  canActivate(context: ExecutionContext): boolean | Promise<boolean> | Observable<boolean> {
+    // 1. Obtener los roles requeridos del decorador @Roles()
+    const requiredRoles = this.reflector.get<UserRoleEnum[]>('roles', context.getHandler());
 
-    // Si no hay roles definidos para la ruta, permitir el acceso
     if (!requiredRoles) {
-      return true;
+      this.logger.debug('No specific roles required for this route. Access granted.');
+      return true; // Si no se especifican roles, permite el acceso
     }
 
-    // Obtener el usuario del request (que viene del JwtAuthGuard)
-    const { user } = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest();
+    const user = request.user; // El objeto de usuario adjunto por JwtStrategy
+
+    this.logger.debug(`RolesGuard: User (req.user): ${JSON.stringify(user)}`);
+    this.logger.debug(`RolesGuard: Required roles: ${JSON.stringify(requiredRoles)}`);
 
     if (!user || !user.roles) {
-      return false; // No hay usuario o roles, denegar acceso
+      this.logger.warn('RolesGuard: User or user roles not found on request. Denying access.');
+      return false; // Si no hay usuario o roles, deniega el acceso
     }
 
-    // Verificar si alguno de los roles del usuario coincide con los roles requeridos
-    const hasRequiredRole = requiredRoles.some((role) => user.roles.includes(role));
+    // 2. Verificar si el usuario tiene al menos uno de los roles requeridos
+    const hasRole = requiredRoles.some(role => user.roles.includes(role));
 
-    return hasRequiredRole;
+    if (!hasRole) {
+      this.logger.warn(`RolesGuard: User ${user.userName} (Roles: ${user.roles}) does not have any of the required roles: ${requiredRoles}. Access denied.`);
+    } else {
+      this.logger.debug(`RolesGuard: User ${user.userName} (Roles: ${user.roles}) has a required role. Access granted.`);
+    }
+
+    return hasRole;
   }
 }
