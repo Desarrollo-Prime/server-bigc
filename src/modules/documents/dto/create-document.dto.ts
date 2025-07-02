@@ -1,15 +1,18 @@
 import { IsString, IsNotEmpty, IsOptional, MaxLength, IsNumber } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer'; // <-- ¡IMPORTANTE! Añadir esta importación
 
 export class CreateDocumentDto {
   @ApiProperty({ description: 'ID de la compañía a la que pertenece el documento', example: 1 })
   @IsNotEmpty({ message: 'El ID de la compañía es obligatorio.' })
   @IsNumber({}, { message: 'El ID de la compañía debe ser un número.' })
+  @Type(() => Number) // <-- ¡Añadir este decorador para la transformación!
   companyId: number;
 
   @ApiProperty({ description: 'ID del área a la que pertenece el documento (opcional)', example: 1, required: false })
   @IsOptional()
   @IsNumber({}, { message: 'El ID del área debe ser un número.' })
+  @Type(() => Number) // <-- ¡Añadir este decorador para la transformación!
   areaId?: number;
 
   @ApiProperty({ description: 'Nombre del documento', example: 'Políticas de Seguridad de la Información' })
@@ -26,5 +29,6 @@ export class CreateDocumentDto {
   @ApiProperty({ description: 'ID del estado del documento (e.g., 1 para Activo)', example: 1 })
   @IsNotEmpty({ message: 'El ID del estado es obligatorio.' })
   @IsNumber({}, { message: 'El ID del estado debe ser un número.' })
+  @Type(() => Number) // <-- ¡Añadir este decorador para la transformación!
   statusId: number;
 }

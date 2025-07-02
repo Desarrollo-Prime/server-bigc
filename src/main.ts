@@ -1,3 +1,4 @@
+// bigc-backend/src/main.ts
 if (typeof global.crypto === 'undefined' || typeof global.crypto.randomUUID === 'undefined') {
   try {
     // Usar 'node:crypto' para referenciar explícitamente el módulo built-in de Node.js
@@ -8,14 +9,13 @@ if (typeof global.crypto === 'undefined' || typeof global.crypto.randomUUID === 
 }
 
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module'; // Corrección aquí: Volver a la importación estática normal
+import { AppModule } from './app.module';
 import { ValidationPipe, HttpStatus, HttpException } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import * as express from 'express';
 import { join } from 'path';
 
 async function bootstrap() {
-  // Ya no es necesaria una importación dinámica aquí.
   const app = await NestFactory.create(AppModule);
 
   // Habilitar CORS para permitir solicitudes desde el frontend
@@ -35,8 +35,9 @@ async function bootstrap() {
     transform: true, // Transforma los objetos de entrada a instancias de los DTOs
   }));
 
-  // Servir archivos estáticos (documentos subidos)
-  app.use('/uploads', express.static(join(process.cwd(), 'uploads')));
+  // *** AJUSTE AQUÍ: Servir archivos estáticos bajo el prefijo global de la API ***
+  // Esto hará que los archivos en 'uploads' sean accesibles a través de /api/uploads/
+  app.use('/api/uploads', express.static(join(process.cwd(), 'uploads')));
 
   // Configuración de Swagger (OpenAPI)
   const config = new DocumentBuilder()
