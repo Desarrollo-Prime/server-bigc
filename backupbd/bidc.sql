@@ -154,3 +154,7 @@ CREATE INDEX idx_documentpermission_document ON public."DocumentPermission" ("Do
 CREATE INDEX idx_documentpermission_role ON public."DocumentPermission" ("RoleId");
 CREATE INDEX idx_area_company ON public."Area" ("CompanyId");
 CREATE INDEX idx_profileuser_company ON public."ProfileUser" ("CompanyId");
+
+
+-- Crear Usuario Admin
+-- Secrip para ejecutar despues
