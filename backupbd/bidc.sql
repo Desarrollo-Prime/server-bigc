@@ -158,3 +158,56 @@ CREATE INDEX idx_profileuser_company ON public."ProfileUser" ("CompanyId");
 
 -- Crear Usuario Admin
 -- Secrip para ejecutar despues
+-- Insertar el usuario SuperAdministrador
+INSERT INTO public."ProfileUser" (
+    "CompanyId",
+    "FirstName",
+    "LastName",
+    "Email",
+    "UserName",
+    "Password",
+    "Phone",
+    "CreatedBy",
+    "ModifiedBy"
+) VALUES (
+    1, -- ID de la compañía Prime Digital (asumiendo que es 1)
+    'Willson',
+    'Russi Avila',
+    'pqrs@primedigitale.com',
+    'wrussi', -- Nombre de usuario generado
+    'A4F1C3B962D5E7F890D1B2C3D4E5F6A7B8C9D0E1F2A3B4C5D6E7F8A9B0C1D2', -- Contraseña Colombia9. hasheada
+    '3102048329',
+    'system',
+    'system'
+);
+
+-- Asignar rol de SuperAdministrador al nuevo usuario
+INSERT INTO public."UserRole" (
+    "UserId",
+    "RoleId",
+    "CreatedBy",
+    "ModifiedBy"
+) VALUES (
+    (SELECT "Id" FROM public."ProfileUser" WHERE "Email" = 'pqrs@primedigitale.com'),
+    (SELECT "Id" FROM public."Role" WHERE "Name" = 'SuperAdministrador'),
+    'system',
+    'system'
+);
+
+-- Verificar que el usuario fue creado correctamente
+SELECT
+    u."Id",
+    u."FirstName",
+    u."LastName",
+    u."Email",
+    u."UserName",
+    u."Phone",
+    r."Name" AS "Role"
+FROM
+    public."ProfileUser" u
+JOIN
+    public."UserRole" ur ON u."Id" = ur."UserId"
+JOIN
+    public."Role" r ON ur."RoleId" = r."Id"
+WHERE
+    u."Email" = 'pqrs@primedigitale.com';
