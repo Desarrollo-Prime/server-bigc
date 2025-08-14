@@ -11,8 +11,8 @@ const databaseConfig = (): TypeOrmModuleOptions => ({
   host: process.env.DB_HOST || 'localhost',
   port: Number(process.env.DB_PORT || '5432'), // Usar Number() para asegurar el tipo
   username: process.env.DB_USERNAME || 'postgres',
-  password: process.env.DB_PASSWORD || 'postgres',
-  database: process.env.DB_DATABASE || 'BIGC',
+  password: process.env.DB_PASSWORD || '1234',
+  database: process.env.DB_DATABASE || 'bigc',
   entities: [join(__dirname, '..', '**', '*.entity.{ts,js}')], // Cargar todas las entidades
   synchronize: false, // ¡IMPORTANTE! NUNCA usar `true` en producción. Se asume que el esquema ya está creado.
   logging: true, // Habilita el log de las consultas SQL (útil para desarrollo)
